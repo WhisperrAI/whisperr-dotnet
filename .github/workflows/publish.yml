@@ -2,6 +2,11 @@ name: Publish NuGet
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to publish, e.g. 1.0.0 (no leading v)."
+        required: true
+        type: string
   push:
     tags:
       - "v*.*.*"
@@ -24,16 +29,37 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            value="${{ github.event.inputs.version }}"
+          else
+            value="${GITHUB_REF_NAME#v}"
+          fi
+          if [ -z "$value" ]; then
+            echo "::error::Could not resolve a package version." >&2
+            exit 1
+          fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+          echo "Publishing version $value"
+
       - name: Restore
         run: dotnet restore
 
       - name: Test
         env:
           WHISPERR_SPEC_PATH: ${{ github.workspace }}/whisperr-spec/conformance/wire.json
-        run: dotnet test --configuration Release --no-restore
+        run: dotnet test --framework net8.0 --configuration Release --no-restore
 
       - name: Pack
-        run: dotnet pack src/Whisperr/Whisperr.csproj --configuration Release --no-restore --output artifacts
+        run: |
+          dotnet pack src/Whisperr/Whisperr.csproj \
+            --configuration Release --no-restore --output artifacts \
+            -p:Version=${{ steps.version.outputs.value }}
+          dotnet pack src/Whisperr.AspNetCore/Whisperr.AspNetCore.csproj \
+            --configuration Release --no-restore --output artifacts \
+            -p:Version=${{ steps.version.outputs.value }}
 
       - name: Publish
         run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate

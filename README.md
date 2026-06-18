@@ -120,12 +120,14 @@ dotnet test -c Release
 dotnet pack src/Whisperr/Whisperr.csproj -c Release -o artifacts
 ```
 
-Publish to NuGet:
+Publish to NuGet. Releases are cut by pushing a `v*.*.*` tag (the workflow
+derives the package version from the tag), but you can also push locally:
 
 ```bash
-dotnet nuget push artifacts/Whisperr.0.1.0.nupkg \
+dotnet nuget push artifacts/Whisperr.*.nupkg \
   --source https://api.nuget.org/v3/index.json \
-  --api-key "$NUGET_API_KEY"
+  --api-key "$NUGET_API_KEY" \
+  --skip-duplicate
 ```
 
 Whisperr - predict churn, automate interventions, recover revenue.
