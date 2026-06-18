@@ -41,21 +41,45 @@ frontend events.
 
 ## ASP.NET Core
 
-```csharp
-using Whisperr;
+Install the companion package for dependency-injection wiring:
 
-builder.Services.AddSingleton(_ => new WhisperrClient(new WhisperrOptions
-{
-    ApiKey = builder.Configuration["WHISPERR_API_KEY"],
-    OnError = error => Console.Error.WriteLine($"whisperr:{error.Code} {error.Message}")
-}));
+```bash
+dotnet add package Whisperr.AspNetCore
 ```
 
+`AddWhisperr` binds the `Whisperr` configuration section and falls back to the
+`WHISPERR_API_KEY` environment variable, then registers `WhisperrClient` as a
+singleton. The host disposes the singleton on shutdown, which runs a final
+flush, so you do not need to manage the lifetime yourself.
+
 ```csharp
-app.MapPost("/billing/webhook", async (
+using Whisperr.AspNetCore;
+
+builder.Services.AddWhisperr(builder.Configuration, options =>
+{
+    options.OnError = error => Console.Error.WriteLine($"whisperr:{error.Code} {error.Message}");
+});
+```
+
+```jsonc
+// appsettings.json
+{
+  "Whisperr": {
+    "ApiKey": "wrk_...",
+    "FlushInterval": "00:00:10"
+  }
+}
+```
+
+Inject `WhisperrClient` wherever you have the user id. `Track`/`Identify`
+enqueue and return immediately; let the background flush and host-shutdown flush
+deliver them, rather than awaiting `FlushAsync` on the request path (a flush can
+wait through retry backoff):
+
+```csharp
+app.MapPost("/billing/webhook", (
     BillingWebhook webhook,
-    WhisperrClient whisperr,
-    CancellationToken cancellationToken) =>
+    WhisperrClient whisperr) =>
 {
     whisperr.Track(webhook.UserId, "payment_failed", new Dictionary<string, object?>
     {
@@ -63,7 +87,25 @@ app.MapPost("/billing/webhook", async (
         ["provider"] = "stripe"
     });
 
-    await whisperr.FlushAsync(cancellationToken);
+    return Results.Ok();
+});
+```
+
+### Request-scoped tracking
+
+For request handlers that already authenticate a user, add the middleware after
+authentication and use `HttpContext.Whisperr()`, which binds to the user id from
+the `NameIdentifier`/`sub` claim (override via `UseWhisperr(resolveUser)`):
+
+```csharp
+using Whisperr.AspNetCore;
+
+app.UseAuthentication();
+app.UseWhisperr();
+
+app.MapPost("/plan/upgrade", (HttpContext http) =>
+{
+    http.Whisperr().Track("plan_upgraded", new Dictionary<string, object?> { ["plan"] = "pro" });
     return Results.Ok();
 });
 ```
@@ -85,6 +127,20 @@ app.MapPost("/billing/webhook", async (
 
 The queue is in-process, not crash-durable. Call `FlushAsync` or
 `ShutdownAsync` before short-lived processes exit.
+
+## Runtime support
+
+- **Targets:** `net8.0` and `netstandard2.0` (the latter covers .NET Framework
+  4.7.2+ and other netstandard2.0 hosts). The conformance suite runs on both
+  `net8.0` and `net472` in CI.
+- **Long-lived hosts:** hold one client for the process lifetime. In ASP.NET
+  Core the DI singleton is disposed (and flushed) on shutdown.
+- **Short-lived / serverless:** the background timer cannot guarantee delivery
+  before the runtime freezes — `await client.ShutdownAsync()` (or
+  `FlushAsync()`) before returning so buffered events aren't lost.
+- **Trimming / AOT:** standard server apps (including trimmed deployments) are
+  supported. The SDK uses reflection-based `System.Text.Json`, so Native AOT is
+  not a v1 guarantee; prefer the JIT/ReadyToRun runtimes for now.
 
 ## Options
 
@@ -120,12 +176,14 @@ dotnet test -c Release
 dotnet pack src/Whisperr/Whisperr.csproj -c Release -o artifacts
 ```
 
-Publish to NuGet:
+Publish to NuGet. Releases are cut by pushing a `v*.*.*` tag (the workflow
+derives the package version from the tag), but you can also push locally:
 
 ```bash
-dotnet nuget push artifacts/Whisperr.0.1.0.nupkg \
+dotnet nuget push artifacts/Whisperr.*.nupkg \
   --source https://api.nuget.org/v3/index.json \
-  --api-key "$NUGET_API_KEY"
+  --api-key "$NUGET_API_KEY" \
+  --skip-duplicate
 ```
 
 Whisperr - predict churn, automate interventions, recover revenue.

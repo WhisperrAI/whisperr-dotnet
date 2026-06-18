@@ -17,9 +17,19 @@ internal sealed class TestHttpMessageHandler : HttpMessageHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var body = request.Content == null
-            ? string.Empty
-            : await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        string body;
+        if (request.Content == null)
+        {
+            body = string.Empty;
+        }
+        else
+        {
+#if NET8_0_OR_GREATER
+            body = await request.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+#else
+            body = await request.Content.ReadAsStringAsync().ConfigureAwait(false);
+#endif
+        }
 
         Requests.Add(new CapturedRequest(request.RequestUri?.AbsolutePath ?? string.Empty, body));
         if (DelayBeforeResponse > TimeSpan.Zero)

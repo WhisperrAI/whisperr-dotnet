@@ -61,27 +61,67 @@ public sealed class WhisperrClientTests
     }
 
     [Fact]
-    public void IdentifyRejectsInvalidExplicitChannelsBeforeQueueing()
+    public async Task IdentifyDropsOnlyTheInvalidChannelAndStillSendsTraits()
     {
+        var handler = new TestHttpMessageHandler();
         var errors = new List<WhisperrError>();
+        using var http = new HttpClient(handler);
         using var client = new WhisperrClient(new WhisperrOptions
         {
             ApiKey = "wrk_test",
             FlushInterval = TimeSpan.Zero,
+            HttpClient = http,
             OnError = errors.Add
         });
 
         var queued = client.Identify("user_1", new IdentifyOptions
         {
+            Traits = new Dictionary<string, object?> { ["plan"] = "pro" },
             Channels = new[]
             {
-                new WhisperrChannel((WhisperrChannelType)999, "ada@example.com")
+                new WhisperrChannel((WhisperrChannelType)999, "ada@example.com"),
+                WhisperrChannel.Sms("+15551234567")
             }
         });
 
-        Assert.False(queued);
-        Assert.Equal(0, client.PendingCount);
+        Assert.True(queued);
+        await client.FlushAsync();
+
+        var request = Assert.Single(handler.Requests, item => item.Path.EndsWith("/v1/identify", StringComparison.Ordinal));
+        using var json = JsonDocument.Parse(request.Body);
+        Assert.Equal("pro", json.RootElement.GetProperty("traits").GetProperty("plan").GetString());
+
+        var channels = json.RootElement.GetProperty("channels");
+        Assert.Equal(1, channels.GetArrayLength());
+        Assert.Equal("sms", channels[0].GetProperty("channel").GetString());
         Assert.Contains(errors, error => error.Code == "dropped");
+    }
+
+    [Fact]
+    public async Task IdentifyIgnoresInvalidPreferredChannelButStillSends()
+    {
+        var handler = new TestHttpMessageHandler();
+        using var http = new HttpClient(handler);
+        using var client = new WhisperrClient(new WhisperrOptions
+        {
+            ApiKey = "wrk_test",
+            FlushInterval = TimeSpan.Zero,
+            HttpClient = http
+        });
+
+        var queued = client.Identify("user_1", new IdentifyOptions
+        {
+            Traits = new Dictionary<string, object?> { ["plan"] = "pro" },
+            PreferredChannel = (WhisperrChannelType)999
+        });
+
+        Assert.True(queued);
+        await client.FlushAsync();
+
+        var request = Assert.Single(handler.Requests, item => item.Path.EndsWith("/v1/identify", StringComparison.Ordinal));
+        using var json = JsonDocument.Parse(request.Body);
+        Assert.Equal("pro", json.RootElement.GetProperty("traits").GetProperty("plan").GetString());
+        Assert.False(json.RootElement.TryGetProperty("preferred_channel", out _));
     }
 
     [Fact]

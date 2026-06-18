@@ -7,7 +7,16 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }} / ${{ matrix.framework }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            framework: net8.0
+          - os: windows-latest
+            framework: net472
     steps:
       - name: Checkout SDK
         uses: actions/checkout@v4
@@ -29,10 +38,28 @@ jobs:
       - name: Test
         env:
           WHISPERR_SPEC_PATH: ${{ github.workspace }}/whisperr-spec/conformance/wire.json
-        run: dotnet test --configuration Release --no-restore
+        run: dotnet test --framework ${{ matrix.framework }} --configuration Release --no-restore
+
+  pack:
+    name: pack
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SDK
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore
 
       - name: Pack
-        run: dotnet pack src/Whisperr/Whisperr.csproj --configuration Release --no-restore --output artifacts
+        run: |
+          dotnet pack src/Whisperr/Whisperr.csproj --configuration Release --no-restore --output artifacts
+          dotnet pack src/Whisperr.AspNetCore/Whisperr.AspNetCore.csproj --configuration Release --no-restore --output artifacts
 
       - name: Upload package
         uses: actions/upload-artifact@v4

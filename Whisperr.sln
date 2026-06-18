@@ -1,10 +1,14 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Whisperr", "src\Whisperr\Whisperr.csproj", "{77C0FD85-05B0-49D9-B596-42C6D34A4F74}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Whisperr.Tests", "tests\Whisperr.Tests\Whisperr.Tests.csproj", "{117FF4CC-62D7-41CB-82E2-4851FF98B379}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{41B4698E-F287-4F54-8095-9B69A2025A99}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Whisperr.AspNetCore", "src\Whisperr.AspNetCore\Whisperr.AspNetCore.csproj", "{374664ED-226A-48E4-A967-0AB73AD9C67B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -20,8 +24,15 @@ Global
 		{117FF4CC-62D7-41CB-82E2-4851FF98B379}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{117FF4CC-62D7-41CB-82E2-4851FF98B379}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{117FF4CC-62D7-41CB-82E2-4851FF98B379}.Release|Any CPU.Build.0 = Release|Any CPU
+		{374664ED-226A-48E4-A967-0AB73AD9C67B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{374664ED-226A-48E4-A967-0AB73AD9C67B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{374664ED-226A-48E4-A967-0AB73AD9C67B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{374664ED-226A-48E4-A967-0AB73AD9C67B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{374664ED-226A-48E4-A967-0AB73AD9C67B} = {41B4698E-F287-4F54-8095-9B69A2025A99}
 	EndGlobalSection
 EndGlobal
