@@ -124,23 +124,25 @@ public sealed class WhisperrClient : IDisposable
         }
 
         options ??= new IdentifyOptions();
-        if (options.PreferredChannel.HasValue && !IsDefinedChannelType(options.PreferredChannel.Value))
+
+        // Mirror the sibling SDKs: an identify is forwarded to the server rather
+        // than discarded client-side. We only drop the individual fields the
+        // local API cannot represent (an undefined channel enum or a channel
+        // with no address), so valid traits and channels still reach Whisperr.
+        var preferredChannel = options.PreferredChannel;
+        if (preferredChannel.HasValue && !IsDefinedChannelType(preferredChannel.Value))
         {
-            Emit(WhisperrError.Dropped("invalid preferred_channel - expected email, sms, or push"));
-            Warn("invalid preferred_channel - identify was not queued");
-            return false;
+            Emit(WhisperrError.Dropped("ignored invalid preferred_channel - expected email, sms, or push"));
+            Warn("ignored invalid preferred_channel - expected email, sms, or push");
+            preferredChannel = null;
         }
 
-        var channels = BuildChannels(options);
-        if (!ValidateChannels(channels))
-        {
-            return false;
-        }
+        var channels = BuildValidChannels(options);
 
         var op = new IdentifyOperation(
             externalUserId,
             SnapshotDictionary(options.Traits),
-            options.PreferredChannel,
+            preferredChannel,
             channels);
 
         return Enqueue(op);
@@ -459,11 +461,31 @@ public sealed class WhisperrClient : IDisposable
         return snapshot;
     }
 
-    private static IReadOnlyList<WhisperrChannel>? BuildChannels(IdentifyOptions options)
+    private IReadOnlyList<WhisperrChannel>? BuildValidChannels(IdentifyOptions options)
     {
         if (options.Channels != null && options.Channels.Count > 0)
         {
-            return SnapshotChannels(options.Channels);
+            var valid = new List<WhisperrChannel>(options.Channels.Count);
+            foreach (var channel in options.Channels)
+            {
+                if (!IsDefinedChannelType(channel.Type))
+                {
+                    Emit(WhisperrError.Dropped("ignored channel with invalid type - expected email, sms, or push"));
+                    Warn("ignored channel with invalid type - expected email, sms, or push");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(channel.Address))
+                {
+                    Emit(WhisperrError.Dropped("ignored channel with missing address"));
+                    Warn("ignored channel with missing address");
+                    continue;
+                }
+
+                valid.Add(new WhisperrChannel(channel.Type, channel.Address, channel.OptedIn, channel.Verified));
+            }
+
+            return valid.Count == 0 ? null : valid;
         }
 
         var channels = new List<WhisperrChannel>();
@@ -483,44 +505,6 @@ public sealed class WhisperrClient : IDisposable
         }
 
         return channels.Count == 0 ? null : channels;
-    }
-
-    private static IReadOnlyList<WhisperrChannel> SnapshotChannels(IReadOnlyList<WhisperrChannel> channels)
-    {
-        var snapshot = new List<WhisperrChannel>(channels.Count);
-        foreach (var channel in channels)
-        {
-            snapshot.Add(new WhisperrChannel(channel.Type, channel.Address, channel.OptedIn, channel.Verified));
-        }
-
-        return snapshot;
-    }
-
-    private bool ValidateChannels(IReadOnlyList<WhisperrChannel>? channels)
-    {
-        if (channels == null)
-        {
-            return true;
-        }
-
-        foreach (var channel in channels)
-        {
-            if (!IsDefinedChannelType(channel.Type))
-            {
-                Emit(WhisperrError.Dropped("invalid channel type - expected email, sms, or push"));
-                Warn("invalid channel type - identify was not queued");
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(channel.Address))
-            {
-                Emit(WhisperrError.Dropped("invalid channel address - address is required"));
-                Warn("invalid channel address - identify was not queued");
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static bool IsDefinedChannelType(WhisperrChannelType type)
