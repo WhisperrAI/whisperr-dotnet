@@ -15,13 +15,13 @@ internal static class SpecLoader
         var explicitPath = Environment.GetEnvironmentVariable("WHISPERR_SPEC_PATH");
         if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
         {
-            return File.ReadAllTextAsync(explicitPath);
+            return ReadAllTextAsync(explicitPath);
         }
 
         var siblingPath = FindSiblingSpec("wire.json");
         if (siblingPath != null)
         {
-            return File.ReadAllTextAsync(siblingPath);
+            return ReadAllTextAsync(siblingPath);
         }
 
         return FetchAsync(WireSpecUrl);
@@ -32,7 +32,7 @@ internal static class SpecLoader
         var explicitPath = Environment.GetEnvironmentVariable("WHISPERR_BEHAVIOR_SPEC_PATH");
         if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
         {
-            return File.ReadAllTextAsync(explicitPath);
+            return ReadAllTextAsync(explicitPath);
         }
 
         var wirePath = Environment.GetEnvironmentVariable("WHISPERR_SPEC_PATH");
@@ -41,17 +41,26 @@ internal static class SpecLoader
             var behaviorPath = Path.Combine(Path.GetDirectoryName(wirePath) ?? string.Empty, "behavior.json");
             if (File.Exists(behaviorPath))
             {
-                return File.ReadAllTextAsync(behaviorPath);
+                return ReadAllTextAsync(behaviorPath);
             }
         }
 
         var siblingPath = FindSiblingSpec("behavior.json");
         if (siblingPath != null)
         {
-            return File.ReadAllTextAsync(siblingPath);
+            return ReadAllTextAsync(siblingPath);
         }
 
         return FetchAsync(BehaviorSpecUrl);
+    }
+
+    private static Task<string> ReadAllTextAsync(string path)
+    {
+#if NET8_0_OR_GREATER
+        return File.ReadAllTextAsync(path);
+#else
+        return Task.FromResult(File.ReadAllText(path));
+#endif
     }
 
     private static string? FindSiblingSpec(string fileName)
