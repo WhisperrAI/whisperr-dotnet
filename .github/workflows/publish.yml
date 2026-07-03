@@ -11,6 +11,14 @@ on:
     tags:
       - "v*.*.*"
 
+# Auth: NuGet Trusted Publishing (OIDC) — no stored token. The policy on
+# nuget.org (owner: whisperr, repo: WhisperrAI/whisperr-dotnet, workflow:
+# publish.yml) lets NuGet/login exchange the GitHub OIDC token for a
+# short-lived API key.
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -61,7 +69,13 @@ jobs:
             --configuration Release --no-restore --output artifacts \
             -p:Version=${{ steps.version.outputs.value }}
 
+      - name: NuGet login (OIDC → short-lived API key)
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: ggent
+
       - name: Publish
         run: dotnet nuget push "artifacts/*.nupkg" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
