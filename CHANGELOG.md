@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0
+## 1.1.0 - 2026-10-12
 
 - Every event now carries `context.sdk_name` (`whisperr-dotnet`) and
   `context.sdk_version` (the package version).
