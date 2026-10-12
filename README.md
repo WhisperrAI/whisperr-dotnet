@@ -110,6 +110,84 @@ app.MapPost("/plan/upgrade", (HttpContext http) =>
 });
 ```
 
+## Traits: `app_language`
+
+`app_language` is a reserved trait. It is the language the user picked in your
+product, not the device or browser locale. Use a BCP 47 tag (`de`, `pt-BR`).
+Whisperr writes messages in this language. When it is not set, Whisperr uses
+the event `context.locale`, then the `locale` trait.
+
+The server SDK has no special API for it. Pass it in `Traits`:
+
+```csharp
+whisperr.Identify("user_8842", new IdentifyOptions
+{
+    Traits = new Dictionary<string, object?> { ["app_language"] = "pt-BR" }
+});
+```
+
+The server keeps the last value you send. A server SDK never guesses the
+language: the process culture is not the user's language.
+
+## Context the SDK adds
+
+Every event carries these keys in `context`:
+
+| Key | Value |
+|---|---|
+| `sdk_name` | `whisperr-dotnet` |
+| `sdk_version` | The SDK package version, for example `1.1.0` |
+| `app_version` | The `AppVersion` option. Not set: no key. |
+
+A key that you pass in the `context` argument of `Track` wins over the SDK
+value. The SDK always sets `$message_id`.
+
+```csharp
+var whisperr = new WhisperrClient(new WhisperrOptions
+{
+    ApiKey = Environment.GetEnvironmentVariable("WHISPERR_API_KEY"),
+    AppVersion = Environment.GetEnvironmentVariable("RELEASE_VERSION") // for example "2026.10.1" or a git SHA
+});
+```
+
+With `AddWhisperr(builder.Configuration)`, set `Whisperr:AppVersion` in
+configuration.
+
+## Billing events
+
+If Whisperr has no billing source for your app (for example no RevenueCat or
+Stripe connection), send billing changes yourself. Use the reserved names in
+`WhisperrBillingEvents`:
+
+| Constant | Event name |
+|---|---|
+| `WhisperrBillingEvents.TrialStarted` | `trial_started` |
+| `WhisperrBillingEvents.SubscriptionStarted` | `subscription_started` |
+| `WhisperrBillingEvents.SubscriptionRenewed` | `subscription_renewed` |
+| `WhisperrBillingEvents.PaymentFailed` | `payment_failed` |
+| `WhisperrBillingEvents.SubscriptionCancelled` | `subscription_cancelled` |
+| `WhisperrBillingEvents.PurchaseCompleted` | `purchase_completed` |
+
+```csharp
+whisperr.Track(
+    "user_8842",
+    WhisperrBillingEvents.SubscriptionStarted,
+    new Dictionary<string, object?>
+    {
+        ["product_id"] = "pro_monthly",
+        ["price"] = 9.99m,          // major units, not cents
+        ["currency"] = "USD",       // ISO 4217, upper case
+        ["period"] = "P1M",         // ISO 8601 duration
+        ["transaction_id"] = "1000000912345678",
+        ["store"] = "app_store"
+    });
+```
+
+> **Register these names first.** Today the server stores these events only
+> after your app registers them (the Whisperr MCP does this during setup). Until
+> the server accepts them without registration, an unregistered name is not
+> stored.
+
 ## Behavior
 
 - `Track` and `Identify` enqueue in memory and return immediately.
@@ -148,6 +226,7 @@ The queue is in-process, not crash-durable. Call `FlushAsync` or
 |---|---:|---|
 | `ApiKey` | - | App ingestion key (`wrk_...`). Required unless disabled. |
 | `BaseUrl` | `https://api.whisperr.net` | Whisperr ingestion API. |
+| `AppVersion` | - | Your release version. Sent as `context.app_version`. |
 | `FlushAt` | `20` | Flush when this many operations are queued. |
 | `FlushInterval` | `10s` | Background flush cadence. Use `TimeSpan.Zero` to disable. |
 | `MaxQueueSize` | `10000` | Oldest operations drop on overflow. |

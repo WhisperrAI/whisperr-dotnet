@@ -27,6 +27,13 @@ public sealed class WhisperrOptions
     public Uri BaseUrl { get; set; } = new Uri(DefaultBaseUrl);
 
     /// <summary>
+    /// The release version of your app or service (for example 2026.10.1 or a
+    /// git SHA). When set, every event carries it as <c>context.app_version</c>.
+    /// Not set: the key is not sent.
+    /// </summary>
+    public string? AppVersion { get; set; }
+
+    /// <summary>
     /// Flush when this many operations are queued. Default: 20.
     /// </summary>
     public int FlushAt { get; set; } = 20;

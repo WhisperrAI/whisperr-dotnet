@@ -4,7 +4,7 @@
     <AssemblyName>Whisperr.AspNetCore</AssemblyName>
     <RootNamespace>Whisperr.AspNetCore</RootNamespace>
     <PackageId>Whisperr.AspNetCore</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>Whisperr</Authors>
     <Company>Whisperr</Company>
     <Description>ASP.NET Core integration for the Whisperr .NET SDK: dependency-injection registration and request-scoped event tracking.</Description>
