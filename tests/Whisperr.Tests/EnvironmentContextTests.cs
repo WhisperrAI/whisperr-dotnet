@@ -82,11 +82,16 @@ public sealed class EnvironmentContextTests
         Assert.Equal(
             new[]
             {
-                "payment_failed",
-                "purchase_completed",
-                "subscription_cancelled",
-                "subscription_renewed",
-                "subscription_started",
+                "auto_renew_disabled",
+                "auto_renew_enabled",
+                "billing_issue_started",
+                "billing_recovered",
+                "membership_ended",
+                "membership_started",
+                "refund_granted",
+                "renewal_succeeded",
+                "trial_auto_renew_disabled",
+                "trial_converted",
                 "trial_started"
             },
             names);

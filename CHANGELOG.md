@@ -9,8 +9,12 @@
 - A key that the caller passes in `Track` context wins over these SDK keys.
   `$message_id` is always the SDK value.
 - New `WhisperrBillingEvents` constants for the reserved billing fallback
-  events (`trial_started`, `subscription_started`, `subscription_renewed`,
-  `payment_failed`, `subscription_cancelled`, `purchase_completed`).
+  events (playbook engine spec section 3.8): `trial_started`,
+  `trial_converted`, `trial_auto_renew_disabled`, `membership_started`,
+  `renewal_succeeded`, `auto_renew_disabled`, `auto_renew_enabled`,
+  `membership_ended`, `billing_issue_started`, `billing_recovered`,
+  `refund_granted`. Money properties: `plan_id`, `price`, `currency`,
+  `plan_period`, `transaction_id`, `store`.
 - README: the `app_language` trait, the context keys, and billing events.
 
 ## 1.0.0
