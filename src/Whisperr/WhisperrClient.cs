@@ -34,6 +34,7 @@ public sealed class WhisperrClient : IDisposable
     private readonly Func<DateTimeOffset> _clock;
     private readonly Func<string> _messageIdGenerator;
     private readonly Func<int, TimeSpan> _retryDelay;
+    private readonly IReadOnlyDictionary<string, object?> _environmentContext;
 
     private Timer? _flushTimer;
     private bool _shutdown;
@@ -78,6 +79,7 @@ public sealed class WhisperrClient : IDisposable
         _clock = options.Clock ?? (() => DateTimeOffset.UtcNow);
         _messageIdGenerator = options.MessageIdGenerator ?? (() => Guid.NewGuid().ToString("D", CultureInfo.InvariantCulture));
         _retryDelay = options.RetryDelay ?? WhisperrOptions.DefaultRetryDelay;
+        _environmentContext = BuildEnvironmentContext(options.AppVersion);
 
         _transport = new WhisperrTransport(
             options.BaseUrl,
@@ -151,6 +153,11 @@ public sealed class WhisperrClient : IDisposable
     /// <summary>
     /// Record a product event for a known user.
     /// </summary>
+    /// <remarks>
+    /// Every event carries <c>context.sdk_name</c>, <c>context.sdk_version</c>
+    /// and, when configured, <c>context.app_version</c>. A key in
+    /// <paramref name="context"/> wins over these SDK keys.
+    /// </remarks>
     public bool Track(
         string externalUserId,
         string eventType,
@@ -174,7 +181,7 @@ public sealed class WhisperrClient : IDisposable
             externalUserId,
             type,
             SnapshotDictionary(properties),
-            SnapshotDictionary(context),
+            MergeContext(context),
             FormatTimestamp(_clock()),
             NextMessageId());
 
@@ -459,6 +466,42 @@ public sealed class WhisperrClient : IDisposable
         }
 
         return snapshot;
+    }
+
+    private static IReadOnlyDictionary<string, object?> BuildEnvironmentContext(string? appVersion)
+    {
+        // No value, no key.
+        var context = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["sdk_name"] = SdkInfo.Name,
+            ["sdk_version"] = SdkInfo.Version
+        };
+
+        if (!string.IsNullOrWhiteSpace(appVersion))
+        {
+            context["app_version"] = appVersion!.Trim();
+        }
+
+        return context;
+    }
+
+    private IReadOnlyDictionary<string, object?> MergeContext(IReadOnlyDictionary<string, object?>? callerContext)
+    {
+        var context = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var item in _environmentContext)
+        {
+            context[item.Key] = item.Value;
+        }
+
+        if (callerContext != null)
+        {
+            foreach (var item in callerContext)
+            {
+                context[item.Key] = item.Value;
+            }
+        }
+
+        return context;
     }
 
     private IReadOnlyList<WhisperrChannel>? BuildValidChannels(IdentifyOptions options)

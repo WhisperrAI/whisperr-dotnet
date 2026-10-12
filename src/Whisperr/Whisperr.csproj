@@ -4,7 +4,7 @@
     <AssemblyName>Whisperr</AssemblyName>
     <RootNamespace>Whisperr</RootNamespace>
     <PackageId>Whisperr</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>Whisperr</Authors>
     <Company>Whisperr</Company>
     <Description>Whisperr server-side SDK for .NET: reliable churn-signal event tracking.</Description>

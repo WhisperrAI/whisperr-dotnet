@@ -9,6 +9,7 @@ internal static class SpecLoader
 {
     private const string WireSpecUrl = "https://raw.githubusercontent.com/WhisperrAI/whisperr-spec/main/conformance/wire.json";
     private const string BehaviorSpecUrl = "https://raw.githubusercontent.com/WhisperrAI/whisperr-spec/main/conformance/behavior.json";
+    private const string V2SpecUrl = "https://raw.githubusercontent.com/WhisperrAI/whisperr-spec/main/conformance/v2.json";
 
     public static Task<string> LoadWireSpecAsync()
     {
@@ -29,7 +30,17 @@ internal static class SpecLoader
 
     public static Task<string> LoadBehaviorSpecAsync()
     {
-        var explicitPath = Environment.GetEnvironmentVariable("WHISPERR_BEHAVIOR_SPEC_PATH");
+        return LoadSiblingSpecAsync("WHISPERR_BEHAVIOR_SPEC_PATH", "behavior.json", BehaviorSpecUrl);
+    }
+
+    public static Task<string> LoadV2SpecAsync()
+    {
+        return LoadSiblingSpecAsync("WHISPERR_V2_SPEC_PATH", "v2.json", V2SpecUrl);
+    }
+
+    private static Task<string> LoadSiblingSpecAsync(string explicitPathVariable, string fileName, string url)
+    {
+        var explicitPath = Environment.GetEnvironmentVariable(explicitPathVariable);
         if (!string.IsNullOrWhiteSpace(explicitPath) && File.Exists(explicitPath))
         {
             return ReadAllTextAsync(explicitPath);
@@ -38,20 +49,20 @@ internal static class SpecLoader
         var wirePath = Environment.GetEnvironmentVariable("WHISPERR_SPEC_PATH");
         if (!string.IsNullOrWhiteSpace(wirePath))
         {
-            var behaviorPath = Path.Combine(Path.GetDirectoryName(wirePath) ?? string.Empty, "behavior.json");
-            if (File.Exists(behaviorPath))
+            var specPath = Path.Combine(Path.GetDirectoryName(wirePath) ?? string.Empty, fileName);
+            if (File.Exists(specPath))
             {
-                return ReadAllTextAsync(behaviorPath);
+                return ReadAllTextAsync(specPath);
             }
         }
 
-        var siblingPath = FindSiblingSpec("behavior.json");
+        var siblingPath = FindSiblingSpec(fileName);
         if (siblingPath != null)
         {
             return ReadAllTextAsync(siblingPath);
         }
 
-        return FetchAsync(BehaviorSpecUrl);
+        return FetchAsync(url);
     }
 
     private static Task<string> ReadAllTextAsync(string path)
