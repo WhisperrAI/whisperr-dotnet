@@ -23,6 +23,8 @@ whisperr.Track(
         ["reason"] = "card_declined"
     });
 
+// The Email shortcut marks the address opted in. Send it only for a user
+// who agreed to email, according to your own records.
 whisperr.Identify("user_8842", new IdentifyOptions
 {
     Email = "ada@example.com",
