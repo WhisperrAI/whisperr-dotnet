@@ -10,3 +10,7 @@
 - Tests consume `whisperr-spec` fixtures. The sibling `../whisperr-spec` checkout
   is auto-detected in this workspace; override with `WHISPERR_SPEC_PATH` only when
   running from a different layout (see `README.md`).
+
+## Design
+
+- Avoid unnecessary secondary labels and descriptions. Let the layout do the explaining
