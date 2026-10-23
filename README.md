@@ -213,6 +213,91 @@ whisperr.Track(
 > the server accepts them without registration, an unregistered name is not
 > stored.
 
+## Catalog push
+
+Send your product catalog (or courses, content, plans) to Whisperr from your
+server, so messages can name real, in-stock items. Use a **server key**
+(`wrk_...`, Settings > API keys) from configuration or an environment variable
+such as `WHISPERR_SERVER_KEY`. Never commit or log it. A publishable key
+(`wpk_...`) throws `WhisperrConfigurationException` before anything is sent.
+
+```csharp
+using Whisperr;
+
+using var whisperr = new WhisperrClient(Environment.GetEnvironmentVariable("WHISPERR_SERVER_KEY")!);
+
+// When a product is created or changes:
+var result = await whisperr.Catalog.UpsertAsync(new[]
+{
+    new CatalogItem
+    {
+        SourceItemId = "sku-1", // the same id you send as product_id in tracked events
+        Type = CatalogItemTypes.Product,
+        Name = "Trail Runner 2",
+        Url = "https://shop.example.com/products/trail-runner-2",
+        Availability = CatalogAvailability.Available,
+        UpdatedAt = product.UpdatedAt, // when it last changed in your system
+        Price = new CatalogPrice { AmountMinor = WhisperrMoney.ToMinorUnits(89.00m, "USD"), Currency = "USD" },
+        ImageUrl = "https://cdn.example.com/trail-runner-2.jpg",
+        CompareAtMinor = WhisperrMoney.ToMinorUnits(110.00m, "USD"),
+        ProductType = "Running shoes",
+        Brand = "Acme",
+        Collections = new List<CatalogCollection>
+        {
+            new CatalogCollection { Id = "running", Name = "Running", Url = "https://shop.example.com/collections/running" },
+        },
+        Tags = new List<string> { "summer" },
+        Extras = new Dictionary<string, string> { ["color"] = "blue" },
+    },
+});
+// result.Accepted, Applied, Unchanged, IgnoredOlder, Rejected[] { Index, SourceItemId, Code, Message }
+
+// When products are removed:
+await whisperr.Catalog.DeleteAsync(new[] { "sku-1", "sku-2" });
+
+// Full sync (daily, or after a bulk import): items you do not upsert between
+// begin and complete are removed.
+var snapshot = await whisperr.Catalog.BeginSnapshotAsync();
+foreach (var page in pages)
+{
+    await whisperr.Catalog.UpsertAsync(page);
+}
+await whisperr.Catalog.CompleteSnapshotAsync(snapshot.SnapshotId, totalCount);
+
+// Every 30 minutes (a hosted service), so Whisperr knows the catalog is still current:
+await whisperr.Catalog.HeartbeatAsync(totalCount);
+
+// Health of the pushed catalog:
+var health = await whisperr.Catalog.StatusAsync(); // State, ItemCount, LastPushAt, ...
+```
+
+`new WhisperrCatalogClient(serverKey)` (or `WhisperrCatalogOptions`) is the
+same client without the event queue.
+
+How it behaves:
+
+- **Sent right away, not queued.** Each task completes once Whisperr has
+  answered. `FlushAsync` is not involved.
+- **Chunked.** Upserts go in batches of 500 items (and at most 2 MiB per
+  request), deletes in batches of 1000. A `Rejected[].Index` is the index in
+  the list you passed.
+- **Retried.** 429, 5xx, timeouts and network errors are retried with backoff
+  (default 5 retries), honoring `Retry-After`. When retries run out, the call
+  throws `WhisperrCatalogException` with `Retryable = true`; for upsert and
+  delete, `Partial` holds what earlier chunks already did.
+- **Safe to repeat.** A retry sends the same body. Whisperr keeps the newest
+  write per item by `UpdatedAt` (deletes by `DeletedAt`), so a repeated or late
+  call never overwrites newer data. `DeleteAsync` uses one `DeletedAt` for the
+  whole call (default: now). Always set `UpdatedAt` from your own data, not
+  from the time of the call.
+- **Refusals throw.** A refused call throws `WhisperrCatalogException` with the
+  HTTP `Status` and the server `Code`, for example `server_key_required`,
+  `catalog_push_disabled` (the owner turned push off in the dashboard) or
+  `snapshot_not_open`.
+- Only send the fields on `CatalogItem`: no descriptions, no image bytes.
+  Prices are integer minor units; `WhisperrMoney.ToMinorUnits(amount,
+  currency)` converts using the ISO 4217 exponent and throws rather than round.
+
 ## Behavior
 
 - `Track` and `Identify` enqueue in memory and return immediately.
@@ -262,6 +347,8 @@ The queue is in-process, not crash-durable. Call `FlushAsync` or
 | `Debug` | `false` | Emits diagnostic warnings to `Logger` or stderr. |
 | `OnError` | - | Observability hook for `auth`, `dropped`, `retry_exhausted`. |
 | `HttpClient` | private client | Pass your own for custom handlers or test capture. |
+| `CatalogMaxRetries` | `5` | Catalog call retries on 429, 5xx and network errors. |
+| `CatalogRequestTimeout` | `30s` | Per-request timeout for catalog calls. |
 
 ## Development
 

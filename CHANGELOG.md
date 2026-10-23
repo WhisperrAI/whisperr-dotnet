@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.0 - 2026-10-23
+
+- New `WhisperrClient.Catalog` for catalog push (whisperr-go catalog v2):
+  `UpsertAsync`, `DeleteAsync` (by ids with one `deletedAt`, or by
+  `CatalogDeletion`), `BeginSnapshotAsync`, `CompleteSnapshotAsync`,
+  `HeartbeatAsync` and `StatusAsync`. Server key only: a `wpk_` key throws
+  `WhisperrConfigurationException` before any request. Calls are sent right
+  away, not queued.
+- Upserts are chunked at 500 items and 2 MiB, deletes at 1000. Rejected items
+  come back with their index in the list you passed. A 413 splits the chunk.
+- 429, 5xx, timeouts and network errors are retried with backoff, honoring
+  `Retry-After`. Retries resend the same body. Refusals and exhausted retries
+  throw `WhisperrCatalogException` (`Status`, `Code`, `Retryable`, `Partial`).
+- `CatalogItem` and related types with the wire names; times are sent as UTC
+  RFC 3339. `WhisperrCatalogClient` for a catalog client on its own. New
+  options `CatalogMaxRetries` and `CatalogRequestTimeout`.
+- `WhisperrMoney.ToMinorUnits(amount, currency)` and `CurrencyExponent` with
+  the ISO 4217 exponents the server uses. They throw instead of rounding.
+- Tests run `Fixtures/catalog_push.json`, the catalog push conformance cases
+  (or `WHISPERR_CATALOG_SPEC_PATH`, once whisperr-spec publishes
+  `conformance/catalog_push.json`).
+
 ## 1.1.0 - 2026-10-12
 
 - Every event now carries `context.sdk_name` (`whisperr-dotnet`) and

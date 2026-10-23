@@ -36,6 +36,10 @@ public sealed class WhisperrClient : IDisposable
     private readonly Func<int, TimeSpan> _retryDelay;
     private readonly IReadOnlyDictionary<string, object?> _environmentContext;
 
+    private readonly WhisperrCatalogOptions _catalogOptions;
+    private readonly object _catalogGate = new object();
+    private WhisperrCatalogClient? _catalog;
+
     private Timer? _flushTimer;
     private bool _shutdown;
     private bool _disposed;
@@ -88,6 +92,17 @@ public sealed class WhisperrClient : IDisposable
             options.HttpClient,
             Warn);
 
+        _catalogOptions = new WhisperrCatalogOptions
+        {
+            ApiKey = options.ApiKey,
+            BaseUrl = options.BaseUrl,
+            MaxRetries = options.CatalogMaxRetries,
+            RequestTimeout = options.CatalogRequestTimeout,
+            HttpClient = options.HttpClient,
+            Clock = options.Clock,
+            Disabled = _disabled,
+        };
+
         Ready = !_disabled;
 
         if (!_disabled && options.FlushInterval > TimeSpan.Zero)
@@ -100,6 +115,22 @@ public sealed class WhisperrClient : IDisposable
     /// True when this client captures events. False when disabled.
     /// </summary>
     public bool Ready { get; }
+
+    /// <summary>
+    /// Catalog push: upsert and delete items, full-sync snapshots, heartbeat and
+    /// status. Needs a server key (wrk_...); a publishable key (wpk_...) throws
+    /// <see cref="WhisperrConfigurationException"/>. Calls are sent right away, not queued.
+    /// </summary>
+    public WhisperrCatalogClient Catalog
+    {
+        get
+        {
+            lock (_catalogGate)
+            {
+                return _catalog ??= new WhisperrCatalogClient(_catalogOptions);
+            }
+        }
+    }
 
     /// <summary>
     /// Current number of buffered operations.
@@ -607,6 +638,7 @@ public sealed class WhisperrClient : IDisposable
 
         _flushTimer?.Dispose();
         _transport.Dispose();
+        _catalog?.Dispose();
         _drainLock.Dispose();
         _disposed = true;
     }

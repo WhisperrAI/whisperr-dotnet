@@ -84,6 +84,16 @@ public sealed class WhisperrOptions
     public Action<WhisperrError>? OnError { get; set; }
 
     /// <summary>
+    /// Catalog call retries after the first attempt on 429, 5xx and network errors. Default: 5.
+    /// </summary>
+    public int CatalogMaxRetries { get; set; } = 5;
+
+    /// <summary>
+    /// Per-request timeout for catalog calls. Default: 30 seconds.
+    /// </summary>
+    public TimeSpan CatalogRequestTimeout { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
     /// Optional HttpClient. When omitted, the SDK owns a private HttpClient.
     /// </summary>
     public HttpClient? HttpClient { get; set; }
