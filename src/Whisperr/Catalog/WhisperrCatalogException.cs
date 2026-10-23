@@ -21,7 +21,7 @@ public sealed class WhisperrCatalogException : Exception
 
     /// <summary>
     /// The server's error code (for example <c>server_key_required</c>,
-    /// <c>catalog_push_disabled</c>, <c>snapshot_not_open</c>), or <c>network_error</c>.
+    /// <c>catalog_push_disabled</c>, <c>snapshot_not_open</c>, <c>snapshot_open</c>), or <c>network_error</c>.
     /// </summary>
     public string Code { get; }
 

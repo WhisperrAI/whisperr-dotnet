@@ -2,17 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace Whisperr.Tests;
 
 /// <summary>
-/// Catalog push conformance (Fixtures/catalog_push.json). whisperr-spec
-/// conformance/catalog_push.json wins when WHISPERR_CATALOG_SPEC_PATH points at
-/// it; until the spec publishes it, the bundled copy is the contract. Fixture
-/// items are wire JSON, read into <see cref="CatalogItem"/> through its JSON names.
+/// Catalog push conformance (Fixtures/catalog_push.json), a byte-identical copy
+/// of whisperr-spec conformance/catalog_push.json. Point
+/// WHISPERR_CATALOG_SPEC_PATH at a spec checkout's file to run that copy instead
+/// and to check the bundled one has not drifted from it. Fixture items are wire
+/// JSON, read into <see cref="CatalogItem"/> through its JSON names.
 /// </summary>
 public sealed class CatalogConformanceTests
 {
@@ -136,7 +139,51 @@ public sealed class CatalogConformanceTests
 
         Assert.Null(error);
         var actual = JsonSerializer.Serialize(result, result!.GetType(), WhisperrCatalogClient.Json);
-        Assert.Equal(CanonicalJson.Of(c.GetProperty("result")), CanonicalJson.Of(actual));
+        Assert.Equal(CanonicalJson.Of(ExpectedResult(doc.RootElement, c.GetProperty("result"), actual)), CanonicalJson.Of(actual));
+    }
+
+    /// <summary>Client-side reject codes carry an SDK-defined message: check it is set, not its text.</summary>
+    private static string ExpectedResult(JsonElement spec, JsonElement result, string actual)
+    {
+        var client = spec.GetProperty("reject_codes").GetProperty("client").EnumerateArray().Select(x => x.GetString()).ToHashSet();
+        var want = JsonNode.Parse(result.GetRawText())!;
+        var got = JsonNode.Parse(actual)!;
+        if (want["rejected"] is JsonArray rejected)
+        {
+            for (var i = 0; i < rejected.Count; i++)
+            {
+                if (client.Contains(rejected[i]!["code"]!.GetValue<string>()))
+                {
+                    var message = got["rejected"]?[i]?["message"]?.GetValue<string>();
+                    Assert.False(string.IsNullOrWhiteSpace(message), "a client-side reject needs a message");
+                    rejected[i]!["message"] = message;
+                }
+            }
+        }
+
+        return want.ToJsonString();
+    }
+
+    [Fact]
+    public void BundledFixtureIsByteIdenticalToTheSpecCopy()
+    {
+        var spec = Environment.GetEnvironmentVariable("WHISPERR_CATALOG_SPEC_PATH");
+        if (string.IsNullOrWhiteSpace(spec))
+        {
+            return; // nothing to compare against without a spec checkout
+        }
+
+        Assert.Equal(File.ReadAllBytes(spec), File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "catalog_push.json")));
+    }
+
+    [Fact]
+    public void TheOnlySdkWrittenRejectCodeIsListedAsClientSide()
+    {
+        // item_too_large is the only code the SDK adds; the server never sends it.
+        using var doc = JsonDocument.Parse(CatalogFixture.Load());
+        var codes = doc.RootElement.GetProperty("reject_codes");
+        Assert.Equal(new[] { "item_too_large" }, codes.GetProperty("client").EnumerateArray().Select(x => x.GetString()));
+        Assert.DoesNotContain("item_too_large", codes.GetProperty("server").EnumerateArray().Select(x => x.GetString()));
     }
 
     [Theory]

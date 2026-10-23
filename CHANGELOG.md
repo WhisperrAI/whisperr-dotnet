@@ -18,9 +18,12 @@
   options `CatalogMaxRetries` and `CatalogRequestTimeout`.
 - `WhisperrMoney.ToMinorUnits(amount, currency)` and `CurrencyExponent` with
   the ISO 4217 exponents the server uses. They throw instead of rounding.
-- Tests run `Fixtures/catalog_push.json`, the catalog push conformance cases
-  (or `WHISPERR_CATALOG_SPEC_PATH`, once whisperr-spec publishes
-  `conformance/catalog_push.json`).
+- Tests run `Fixtures/catalog_push.json`, a byte-identical copy of
+  whisperr-spec `conformance/catalog_push.json` (`WHISPERR_CATALOG_SPEC_PATH`
+  runs a spec checkout's file and checks the copy has not drifted). It pins
+  error bodies as the server sends them (`{"error":{"code","message"}}`), the
+  409 `snapshot_open` heartbeat refusal, the 404 feature-detect, the 413
+  split, and `item_too_large` as the one client-side reject code.
 
 ## 1.1.0 - 2026-10-12
 

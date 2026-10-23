@@ -199,7 +199,10 @@ public sealed class WhisperrCatalogClient : IDisposable
         return Deserialize<CatalogSnapshotResult>(body);
     }
 
-    /// <summary>Tell Whisperr the catalog is still current. Send every 30 minutes with your live item count.</summary>
+    /// <summary>
+    /// Tell Whisperr the catalog is still current. Send every 30 minutes with your live item count.
+    /// Refused with 409 <c>snapshot_open</c> while a full sync is open: complete the snapshot first.
+    /// </summary>
     public async Task<CatalogHeartbeatResult> HeartbeatAsync(long itemCount, CancellationToken cancellationToken = default)
     {
         CheckKey();

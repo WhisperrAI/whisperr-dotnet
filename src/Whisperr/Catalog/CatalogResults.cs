@@ -15,7 +15,10 @@ public sealed class CatalogRejection
     [JsonPropertyName("source_item_id")]
     public string SourceItemId { get; set; } = string.Empty;
 
-    /// <summary>Reject code, e.g. <c>invalid_url</c>, <c>url_host_not_allowed</c>, <c>invalid_price</c>.</summary>
+    /// <summary>
+    /// Reject code: a server code (e.g. <c>invalid_url</c>, <c>url_host_not_allowed</c>, <c>invalid_price</c>),
+    /// or <c>item_too_large</c>, which only this SDK writes (the item cannot fit any request).
+    /// </summary>
     [JsonPropertyName("code")]
     public string Code { get; set; } = string.Empty;
 
